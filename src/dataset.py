@@ -40,9 +40,10 @@ class FlowSequenceDataset(Dataset):
 
         X_seq = self.X[start:end]          # shape: (seq_len, n_features)
 
-        # label = 1 if ANY flow in window is attack
-        # .max() returns the highest value — if any 1 exists, result = 1
-        y_seq = self.y[start:end].max()    # scalar: 0 or 1
+        # flag sequence as attack if 30%+ of flows are attacks
+        # more realistic than max() and more sensitive than majority vote
+        attack_ratio = self.y[start:end].float().sum() / self.seq_len
+        y_seq = (attack_ratio >= 0.3).long()
 
         return X_seq, y_seq
 
