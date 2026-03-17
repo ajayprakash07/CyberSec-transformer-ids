@@ -42,20 +42,12 @@ CONFIG = {
 # ─────────────────────────────────────────────
 
 def get_loss_function(y_train_path, device):
-    """
-    Calculates class weights from training labels.
-    Benign appears less → gets higher weight.
-    Attack appears more → gets lower weight.
-    This stops the model from being lazy and always predicting attack.
-    """
     y_train = np.load(y_train_path)
 
     total   = len(y_train)
     benign  = (y_train == 0).sum()
     attack  = (y_train == 1).sum()
 
-    # weight = total / (2 * class_count)
-    # class that appears less → gets higher weight
     weight_benign = total / (2 * benign)
     weight_attack = total / (2 * attack)
 
@@ -75,12 +67,7 @@ def get_loss_function(y_train_path, device):
 # ─────────────────────────────────────────────
 
 def train_one_epoch(model, loader, criterion, optimizer, device):
-    """
-    Runs one full pass through training data.
-    Updates model parameters after every batch.
-    Returns average loss for this epoch.
-    """
-
+    
     # enable dropout — training mode
     model.train()
 
@@ -93,22 +80,13 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
         X_batch = X_batch.to(device)
         y_batch = y_batch.to(device)
 
-        # ── Forward Pass ──────────────────────
-        # model makes predictions
         predictions = model(X_batch)         # shape: (64, 2)
 
-        # calculate how wrong the predictions are
         loss = criterion(predictions, y_batch)
 
-        # ── Backward Pass ─────────────────────
-        # clear gradients from previous batch
         optimizer.zero_grad()
 
-        # calculate gradients — which params caused the error?
         loss.backward()
-
-        # clip gradients — prevents them exploding to huge values
-        # keeps training stable
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         # update parameters — take one step down the gradient
@@ -132,12 +110,6 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
 # ─────────────────────────────────────────────
 
 def validate(model, loader, criterion, device):
-    """
-    Runs one full pass through validation data.
-    NO parameter updates — just measuring performance.
-    Returns average loss and accuracy.
-    """
-
     # disable dropout — evaluation mode
     model.eval()
 
@@ -206,10 +178,6 @@ def plot_curves(train_losses, val_losses, val_accuracies):
 # ─────────────────────────────────────────────
 
 def evaluate_metrics(model, loader, device, split_name='Test'):
-    """
-    Computes full classification metrics on any data split.
-    Precision, Recall, F1, ROC-AUC, Confusion Matrix.
-    """
     model.eval()
 
     all_preds  = []
@@ -298,14 +266,11 @@ def train():
 
     set_seeds(CONFIG['seed']) 
 
-    # ── Setup ─────────────────────────────────
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
 
-    # build model
     model = get_model(device)
 
-    # get dataloaders
     train_loader, val_loader, _ = get_dataloaders(
         batch_size=CONFIG['batch_size'],
         seq_len=CONFIG['seq_len'],
@@ -321,9 +286,6 @@ def train():
         lr=CONFIG['learning_rate']
     )
 
-    # learning rate scheduler
-    # reduces learning rate by 50% if val loss stops improving
-    # helps model fine-tune in later epochs
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='min',        # minimize val loss
